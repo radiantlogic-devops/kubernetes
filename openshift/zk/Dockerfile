@@ -1,0 +1,74 @@
+################################################################################
+# Build stage 0
+# Extract FID base files
+################################################################################
+ARG BASE_REGISTRY=registry1.dso.mil
+ARG BASE_IMAGE=ironbank/redhat/ubi/ubi8
+ARG BASE_TAG=8.4
+
+FROM radiantone/zookeeper:3.5.8 as base
+
+RUN chmod -R g=u /opt/radiantone
+
+
+################################################################################
+# Build stage 1
+# Copy prepared files from the previous stage and complete the image.
+################################################################################
+FROM ${BASE_REGISTRY}/${BASE_IMAGE}:${BASE_TAG}
+
+RUN yum update --setopt=tsflags=nodocs -y && \
+      yum install -y hostname nc && \
+      yum clean all
+
+# Copy file from FID image
+COPY --from=base --chown=1000:0 /opt/radiantone /opt/radiantone
+
+#COPY --chown=1000:0 scripts/run.sh /opt/radiantone/run.sh
+RUN chmod +x /opt/radiantone/run.sh
+
+# Provide a non-root user to run the process.
+#RUN groupadd --gid 1000 radiantone && \
+RUN  useradd --uid 1000 --gid 0 -G 0 \
+      --home-dir /opt/radiantone --no-create-home \
+      radiantone
+
+USER radiantone
+
+RUN chmod -R g=u /opt/radiantone
+
+# Make the file run.sh executable
+#RUN chmod +x /opt/radiantone/run.sh && chmod +x /opt/radiantone/update.sh \
+#	&& chmod +x /opt/radiantone/install.sh && chmod +x /opt/radiantone/migrate.sh \
+#        && chmod +x /opt/radiantone/migrate-local.sh
+
+WORKDIR /opt/radiantone
+
+ENV PATH=/opt/radiantone/rli-zookeeper-external/zookeeper/bin:/opt/radiantone/rli-zookeeper-external/jdk/bin:${PATH}
+
+EXPOSE 2181 2888 3888 8080
+
+CMD ["/opt/radiantone/run.sh"]
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=1m --retries=5 CMD curl -I -f --max-time 5 http://localhost:8080/commands/ruok || exit 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
