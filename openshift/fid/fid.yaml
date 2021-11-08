@@ -1,0 +1,117 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: myfid
+  labels:
+    app: myfid
+spec:
+  ports:
+    - port: 9100
+      name: admin-http
+    - port: 2389
+      name: ldap
+    - port: 2636
+      name: ldaps
+  selector:
+    app: myfid
+  type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myfid-cp
+  labels:
+    app: myfid-cp
+#  annotations:
+#    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+#    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012
+spec:
+  ports:
+    - port: 7070
+      name: cp-http
+    - port: 7171
+      name: cp-https
+    - port: 8089
+      name: http
+    - port: 8090
+      name: https
+  selector:
+    statefulset.kubernetes.io/pod-name: myfid-0
+  type: LoadBalancer
+  
+------
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: myfid
+spec:
+  selector:
+    matchLabels:
+      app: myfid # has to match .spec.template.metadata.labels
+  serviceName: "myfid"
+  replicas: 1 # by default is 1
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: myfid # has to match .spec.selector.matchLabels
+    spec:
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: myfid
+          image: anikhet/ib-fidimg
+          imagePullPolicy: IfNotPresent
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  [
+                    "/bin/sh",
+                    "-c",
+                    "echo Hello from the myfid postStart handler > /opt/radiantone/vds/lifecycle.txt",
+                  ]
+            preStop:
+              exec:
+                #              command: ["/opt/radiantone/vds/bin/advanced/cluster.sh","detach"]
+                command: ["/opt/radiantone/vds/bin/stopVDSServer.sh"]
+          ports:
+            - containerPort: 2181
+              name: zk-client
+            - containerPort: 7070
+              name: cp-http
+            - containerPort: 7171
+              name: cp-https
+            - containerPort: 9100
+              name: admin-http
+            - containerPort: 9101
+              name: admin-https
+            - containerPort: 2389
+              name: ldap
+            - containerPort: 2636
+              name: ldaps
+            - containerPort: 8089
+              name: http
+            - containerPort: 8090
+              name: https
+          envFrom:
+            - configMapRef:
+                name: fid-environment-variables
+          env:
+            - name: ZK_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rootcreds
+                  key: password
+          volumeMounts:
+            - name: r1-pvc
+              mountPath: /opt/radiantone/vds
+          command: ["/bin/sh", "-c"]
+          args:
+            [
+              "if [ $HOSTNAME != myfid-0 ]; then export CLUSTER=join; fi;./run.sh fg",
+            ]
+      volumes:
+      - name: r1-pvc
+        emptyDir: {}
