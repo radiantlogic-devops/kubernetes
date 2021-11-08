@@ -82,7 +82,7 @@ spec:
         runAsNonRoot: true
       containers:
         - name: fid
-          image: radiantone/fid:7.3.16
+          image: anikhet/ib-fidimg
           imagePullPolicy: Always
           lifecycle:
             postStart:
