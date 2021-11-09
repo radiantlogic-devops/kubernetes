@@ -1,0 +1,138 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fid-creds
+type: Opaque
+data:
+  username: Y249RGlyZWN0b3J5IE1hbmFnZXI= # cn=Directory Manager
+  password: V2VsY29tZTEyMzQ= # Welcome1234
+  machine-key: PG1hY2hpbmVLZXkgZGVjcnlwdGlvbj0iQUVTIiBkZWNyeXB0aW9uS2V5PSJDMjAzMTNDMDNGRTJCNkZCNkU4NTJBMDNEQjdDMDQzRDNBQTI1RUU5NkM5RjRBMTdBNkVBQzNCOTczQkEyNjBGIiB2YWxpZGF0aW9uPSJITUFDU0hBMjU2IiB2YWxpZGF0aW9uS2V5PSIxQkVDMzE1RjI3NDcxRDdGQUM0MkY1N0Q3MEIwQzlFMkJFNzkzMDU5RjY4RDUzODJGRTBDMjQ1QzI2NURFRjA1NTc4NEI2OTdEREZDRTkxQjk1NTNENzYxNzg1MUU3QTI2NjdEMjU5NzRBNzE4M0MyMzI3MDBEREJDOUFBMThGRSIgLz4K
+---
+apiVersion: v1
+data:
+  VDS_HOSTNAME: "fid-r1-0.fid-r1.demo.svc.cluster.local" # FID pod FQDN
+  VDS_PORT: "2636"
+  CFS_LOG_LEVEL: "5"
+kind: ConfigMap
+metadata:
+  labels:
+    role: cfs
+  name: cfs-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cfs-master
+  labels:
+    app: cfs-master
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: cfs-master
+      labels:
+        app: cfs-master
+    spec:
+      tolerations:
+      - key: "os"
+        operator: "Equal"
+        value: "windows"
+        effect: "NoSchedule"
+      containers:
+      - name: cfs
+        image: deathcat05/kiwilemonparrot:ltsc2019v2
+        ports:
+          - containerPort: 443
+            name: https
+        envFrom:
+        - configMapRef:
+            name: cfs-config
+        env:
+        - name: VDS_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: fid-creds
+              key: username
+        - name: VDS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fid-creds
+              key: password
+        - name: MACHINE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: fid-creds
+              key: machine-key
+        livenessProbe:
+          exec:
+            command: 
+            - cmd 
+            - /c 
+            - curl
+            - -k
+            - https://127.0.0.1/system
+          initialDelaySeconds: 60
+          periodSeconds: 30
+      nodeSelector:
+        kubernetes.io/os: windows
+        kubernetes.io/arch: amd64
+  selector:
+    matchLabels:
+      app: cfs-master
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cfs-master
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:494518117155:certificate/ce3e0781-b686-48b2-9ba9-9b99329f507b
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "https"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "https"
+spec:
+#  type: LoadBalancer
+  type: ClusterIP
+  ports:
+  - protocol: TCP
+    name: https
+    port: 443
+    targetPort: 443
+  selector:
+    app: cfs-master
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smtp
+  labels:
+    app: smtp
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: smtp
+      labels:
+        app: smtp
+    spec:
+      containers:
+      - name: smtp
+        image: bytemark/smtp:latest
+        ports:
+          - containerPort: 25
+            name: smtp
+  selector:
+    matchLabels:
+      app: smtp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smtp-server
+spec:
+  type: ClusterIP
+  ports:
+  - protocol: TCP
+    name: smtp
+    port: 25
+    targetPort: 25
+  selector:
+    app: smtp
