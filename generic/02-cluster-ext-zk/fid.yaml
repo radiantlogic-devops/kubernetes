@@ -4,7 +4,7 @@ metadata:
   name: fidrootcreds
 type: Opaque
 data:
-  username: Y249RGlyZWN0b3J5IE1hbmFnZXI=
+  username: Y249RGlyZWN0b3J5IE1hbmFnZXI= 
   password: c2VjcmV0MTIzNA==
 ---
 apiVersion: v1
@@ -12,7 +12,7 @@ data:
   ZK: "external"
   ZK_CONN_STR: "zookeeper.default.svc.cluster.local:2181" # this should match the service name from zk deployment
   ZK_CLUSTER: "fid"
-  LICENSE: "{rlib}x9TJ257S2cKv2crHu8LS3c3d27XSlczSv43U29DS6a/jpNuUxdrSzNTk17+b2+LTt57K3s3aoLHn19LVs9XN2M+rpIGemJ+ShJGVnY3X2ImfqJmlgqSWlpqepHycl5mUho6ZmqaioY2imqKXgpGUmZGep5A="
+  LICENSE: "PASTE_LICENSE_HERE"
 kind: ConfigMap
 metadata:
   labels:
