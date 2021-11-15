@@ -76,14 +76,28 @@ spec:
       labels:
         app: fid # has to match .spec.selector.matchLabels
     spec:
-      terminationGracePeriodSeconds: 220
+      terminationGracePeriodSeconds: 120
       securityContext:
         fsGroup: 1000
       initContainers:
         - name: check-zk-write
           imagePullPolicy: IfNotPresent
           image: alpine:latest
-          command: ["/bin/sh","-c"," apk add -q --no-cache curl jq && is_read_only=$(curl -sf http://zookeeper.fid-demo.svc.cluster.local:8080/commands/is_read_only | jq -r .read_only) && if [ -z \"$is_read_only\" ];then is_read_only=true;fi && while $is_read_only;do echo \"Waiting for zookeeper to be is_read_only to be false\";sleep 15;is_read_only=$(curl -sf http://zookeeper.fid-demo.svc.cluster.local:8080/commands/is_read_only | jq -r .read_only); if [ -z \"$is_read_only\" ];then is_read_only=true;fi done"]
+          command:
+              [
+                "/bin/sh",
+                "-c",
+                "if [ $HOSTNAME == fid-0 ]; then until nc -w 2 -z zookeeper-2.zookeeper.fid-demo.svc.cluster.local 2888; do echo Waiting for zookeeper-2.zookeeper.fid-demo.svc.cluster.local -- 2888;sleep 10; done;echo \"zookeeper-2 is up!\"; sleep 60;fi"
+              ] 
+          securityContext:
+            privileged: true
+        - name: migration
+          image: alpine:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c","if [ $HOSTNAME == fid-0 ]; then apk add -q --no-cache curl tree; cd /migrations ; curl -o export.zip https://raw.githubusercontent.com/radiantlogic-devops/docker-compose/master/05-monitoring-stack/configs/fid/export.zip; tree;fi"]
+          volumeMounts:
+          - name: migrations
+            mountPath: /migrations
           securityContext:
             privileged: true
         - name: sysctl
@@ -97,22 +111,6 @@ spec:
             ]
           securityContext:
             privileged: true
-        - name: migration
-          image: alpine:latest
-          imagePullPolicy: IfNotPresent
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              set -ex
-              # Download the curl package
-              apk add -q --no-cache curl
-              # Download the migrations file
-              curl -sSo /migrations/export.zip https://raw.githubusercontent.com/radiantlogic-devops/docker-compose/master/05-monitoring-stack/configs/fid/export.zip
-             
-              echo 'Migration file copied to /migrations/export.zip' && ls -ltr /migrations
-          volumeMounts:
-          - name: migrations
-            mountPath: /migrations
       containers:
         - name: fid
           image: radiantone/fid:7.3.16 # Do not change as migration will not be success
@@ -151,16 +149,16 @@ spec:
           readinessProbe:
             tcpSocket:
               port: 2389
-            initialDelaySeconds: 150
-            periodSeconds: 60
-            failureThreshold: 7
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            failureThreshold: 5
             successThreshold: 1
           livenessProbe:
             tcpSocket:
               port: 9100
-            initialDelaySeconds: 150
-            periodSeconds: 60
-            failureThreshold: 7
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            failureThreshold: 5
             successThreshold: 1
           envFrom:
             - configMapRef:
@@ -176,13 +174,13 @@ spec:
               mountPath: /opt/radiantone/vds
             - name: migrations
               mountPath: /migrations
-          # resources:
-          #   limits:
-          #     cpu: "4"
-          #     memory: 8Gi
-          #   requests:
-          #     cpu: "2"
-          #     memory: 4Gi
+          resources:
+            limits:
+              cpu: "4"
+              memory: 8Gi
+            requests:
+              cpu: "2"
+              memory: 4Gi
           command: ["/bin/sh", "-c"]
           args:
             [
@@ -211,20 +209,12 @@ spec:
           - containerPort: 9095   
           securityContext:
             privileged: true
-          readinessProbe:
-            tcpSocket:
-              port: 9095
-            initialDelaySeconds: 150
-            periodSeconds: 60
-            failureThreshold: 7
-            successThreshold: 1
-          livenessProbe:
-            tcpSocket:
-              port: 9095
-            initialDelaySeconds: 150
-            periodSeconds: 60
-            failureThreshold: 7
-            successThreshold: 1
+          command:
+              [
+                "/bin/sh",
+                "-c",
+                "until nc -w 2 -z localhost 2389; do echo Waiting for fid -- 2389;sleep 10; done;echo \"fid is up!\" && /opt/fidexporter/entry.sh"
+              ]       
       nodeSelector:
         kubernetes.io/os: linux        
       volumes:
