@@ -1,7 +1,7 @@
 # kubernetes
 Kubernetes manifest files for FID deployment 
 
-The following kubernetes manifest in this monitoring stack are imitating exact setup from [docker-compose](https://github.com/radiantlogic-devops/docker-compose) repo that consists of [monitoring-stack](https://github.com/radiantlogic-devops/docker-compose/tree/master/05-monitoring-stack)
+The following kubernetes manifest files in this monitoring stack are imitating exact setup from [docker-compose](https://github.com/radiantlogic-devops/docker-compose) repo that consists of [monitoring-stack](https://github.com/radiantlogic-devops/docker-compose/tree/master/05-monitoring-stack)
 
 ## Prerequisites
 - `kubectl`  [Download Instructions]: <https://kubernetes.io/docs/tasks/tools/>
@@ -13,7 +13,7 @@ kubectl create namespace monitoring
 kubectl create namespace fid-demo
 ```
 
-## Usage
+## Installation
 - Apply monitoring kubernetes manifest files in `monitoring` namespace
 ```
 kubectl apply -f monitoring -n monitoring
