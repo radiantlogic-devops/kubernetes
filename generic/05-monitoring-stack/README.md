@@ -7,6 +7,7 @@ The following kubernetes manifest files in this monitoring stack are imitating e
 - `kubectl`  [Download Instructions]: <https://kubernetes.io/docs/tasks/tools/>
 - Access to kubernetes cluster `kubeconfig` file
 - In this setup we will use `monitoring` & `fid-demo` namespaces. Make sure they are not used. Run the following commands to use.
+- Update `fid-demo/fid.yaml` in `line 15` with your license for fid
 > If you already have a monitoring namespace setup you can skip setting up monitoring namespace. Make sure `pushgateway.monitoring` has been setup in yours.
 ```
 kubectl create namespace monitoring
