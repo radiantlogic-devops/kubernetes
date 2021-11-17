@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-deployment
+  labels:
+    app: prometheus-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-server
+  template:
+    metadata:
+      labels:
+        app: prometheus-server
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.31.1
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus/"
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: prometheus-config-volume
+              mountPath: /etc/prometheus/
+            - name: prometheus-storage-volume
+              mountPath: /prometheus/
+      volumes:
+        - name: prometheus-config-volume
+          configMap:
+            defaultMode: 420
+            name: prometheus-server-conf
+        - name: prometheus-storage-volume
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+  labels:
+    name: prometheus-service
+  annotations:
+      prometheus.io/scrape: 'true'
+      prometheus.io/port:   '9090' 
+spec:
+  selector: 
+    app: prometheus-server
+  type: ClusterIP  
+  ports:
+    - port: 9090
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-server-conf
+  labels:
+    name: prometheus-server-conf
+data:
+  prometheus.rules: |-
+    groups:
+    - name: FID alerts
+      rules:
+      - alert: FID memory is high
+        expr: (ldap_memory_used{job="fid-targets"}/ldap_memory_max{job="fid-targets"}) * 100 > 80
+        for: 120s
+        labels:
+          severity: warning
+        annotations:
+          title: FID Memory usage on {{ $labels.instance }} is more than 80%
+          description: warning! {{ $labels.job }} on {{ $labels.instance }} found FID memory usage is more than 80% for 120s
+      - alert: FID connections are high
+        expr: ldap_current_connections{job="fid-targets"} > 800
+        for: 10s
+        labels:
+          severity: warning
+        annotations:
+          title: FID connections on {{ $labels.instance }} are more than 800
+          description: warning! {{ $labels.job }} on {{ $labels.instance }} found FID connections are morethan 5 for 10s
+      - alert: FID node disk usage is high
+        expr: (ldap_disk_used{job="fid-targets"}/ldap_disk_total{job="fid-targets"}) * 100 > 80
+        for: 120s
+        labels:
+          severity: warning
+        annotations:
+          title: FID node disk usage on {{ $labels.instance }} is more than 80%
+          description: warning! {{ $labels.job }} on {{ $labels.instance }} found FID node disk usage are more than 80% for 120s
+  prometheus.yml: |-
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        monitor: fid-project
+    rule_files:
+      - alert.rules
+    alerting:
+      alertmanagers:
+        - scheme: http
+          static_configs:
+            - targets:
+                - 'alertmanager:9093'
+    scrape_configs:
+      - job_name: prometheus
+        scrape_interval: 5s
+        static_configs:
+          - targets:
+              - 'localhost:9090'
+      - job_name: cadvisor
+        scrape_interval: 5s
+        static_configs:
+          - targets:
+              - 'cadvisor:8080'
+      - job_name: node-exporter
+        scrape_interval: 5s
+        static_configs:
+          - targets:
+              - 'node-exporter:9100'
+      - job_name: pushgateway
+        scrape_interval: 10s
+        honor_labels: true
+        static_configs:
+          - targets:
+              - 'pushgateway:9091'
