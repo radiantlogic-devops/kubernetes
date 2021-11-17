@@ -17,7 +17,7 @@ spec:
       - args:
         - --config.file=/etc/config/alertmanager.yml
         - --storage.path=/data
-        image: quay.io/prometheus/alertmanager:latest
+        image: quay.io/prometheus/alertmanager:v0.23.0
         imagePullPolicy: IfNotPresent
         name: alertmanager
         ports:
