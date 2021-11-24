@@ -10,9 +10,9 @@ data:
 apiVersion: v1
 data:
   ZK: "external"
-  ZK_CONN_STR: "myzk:2181" #this should match the service name from zk deployment
+  ZK_CONN_STR: "zookeeper:2181" #this should match the service name from zk deployment(<service_name>.<namespace>.2181)
   ZK_CLUSTER: "fid"
-  LICENSE: "{rlib}x9TJ257S1cLYy5fat9TY0cLk2b6v29HSv9TT19PT6cDU2dyRtdDRldHg47Dkyt2gxMLI0sLc6LvdzJXXy9HJpsbk1bibzOHTu9PF3crd4omfn5iUh5CWmZOfoLXTpJmkgqOUnZSbpnyfl5aTgpKblpmwpo2crJ2ohqKUmZGepHykl5XGxMbF3crd4qDY1M7WxsLR2Z6fqn2moJmYhpiVmZaeoLnQ37fStsbXppg="
+  LICENSE: "<Your_License_Key>"
 kind: ConfigMap
 metadata:
   labels:
