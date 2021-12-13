@@ -13,7 +13,7 @@ data:
   ZK: "local"
   ZK_CLUSTER: "fid"
   ZK_PASSWORD: "secret1234"
-  LICENSE: "{rlib}x9TJ257S2cKv2crHu8LS3c3d27XSlczSv43U29DS6a/jpNuUxdrSzNTk17+b2+LTt57K3s3aoLHn19LVs9XN2M+rpIGemJ+ShJGVnY3X2ImfqJmlgqSWlpqepHycl5mUho6ZmqaioY2imqKXgpGUmZGep5A="
+  LICENSE: "<Your_License_Key>"
 kind: ConfigMap
 metadata:
   labels:
