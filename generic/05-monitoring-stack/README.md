@@ -1,5 +1,5 @@
-# kubernetes
-Kubernetes manifest files for FID deployment 
+# Monitoring Stack
+Kubernetes manifest files for FID deployment & monitoring using prometheus & grafana
 
 The following kubernetes manifest files in this monitoring stack are imitating exact setup from [docker-compose](https://github.com/radiantlogic-devops/docker-compose) repo that consists of [monitoring-stack](https://github.com/radiantlogic-devops/docker-compose/tree/master/05-monitoring-stack)
 
