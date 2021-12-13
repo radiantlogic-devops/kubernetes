@@ -22,7 +22,7 @@ spec:
       containers:
         - name: authrate
           image: pingidentity/ldap-sdk-tools:edge
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           command:
             [
               "sh",
