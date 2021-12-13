@@ -1,41 +1,3 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: logstash
-spec:
-  selector:
-    matchLabels:
-      app: logstash
-  replicas: 1
-  template:
-    metadata:
-      name: logstash
-      labels:
-        app: logstash
-    spec: 
-      containers:
-        - name: logstash
-          image: docker.elastic.co/logstash/logstash:7.5.0
-          ports:
-            - name: logstash-beats
-              containerPort: 5044
-          volumeMounts:
-            - mountPath: /usr/share/logstash/pipeline
-              name: logstash-pipeline
-              readOnly: false
-            - mountPath: /usr/share/logstash/templates/
-              name: logstash-template
-              readOnly: false
-      volumes:
-        - name: logstash-pipeline
-          configMap:
-            defaultMode: 420
-            name: logstash-pipeline
-        - name: logstash-template
-          configMap:
-            defaultMode: 420
-            name: logstash-template
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -52,13 +14,25 @@ data:
       json {
         source => "message"
       }
+      if [log_name] == "zookeeper.log" {
+        grok {
+            match => { "message" => "%{TIMESTAMP_ISO8601:timestamp} \[myid:%{GREEDYDATA:zk_id:int}\] - %{GREEDYDATA:log_level} \[%{GREEDYDATA:thread_name}\] - %{GREEDYDATA:message}" }
+            overwrite => [ "message" ]
+            add_tag => ["zookeeper_log"]
+        }
+      } else if [log_name] == "vds_server_access.log" {
+        grok {
+          match => { "message" => "%{TIMESTAMP_ISO8601:timestamp} \[myid:%{GREEDYDATA:zk_id:int}\] - %{GREEDYDATA:log_level} \[%{GREEDYDATA:thread_name}\] - %{GREEDYDATA:message}" }
+            overwrite => [ "message" ]
+            add_tag => ["zookeeper_log"]
+        }
+      }
       date{
-        match => ["timestamp", "UNIX_MS"]
-        target => "@timestamp"
+        match => ["timestamp", "ISO8601"]
       }
       ruby {
         code => "event.set('indexDay', event.get('[@timestamp]').time.localtime('+09:00').strftime('%Y%m%d'))"
-      }
+      }      
     }
 
     output {
@@ -107,6 +81,44 @@ data:
         }
     }
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+spec:
+  selector:
+    matchLabels:
+      app: logstash
+  replicas: 1
+  template:
+    metadata:
+      name: logstash
+      labels:
+        app: logstash
+    spec:
+      containers:
+        - name: logstash
+          image: docker.elastic.co/logstash/logstash:7.5.0
+          ports:
+            - name: logstash-beats
+              containerPort: 5044
+          volumeMounts:
+            - mountPath: /usr/share/logstash/pipeline
+              name: logstash-pipeline
+              readOnly: false
+            - mountPath: /usr/share/logstash/templates
+              name: logstash-template
+              readOnly: false
+      volumes:
+        - name: logstash-pipeline
+          configMap:
+            defaultMode: 420
+            name: logstash-pipeline
+        - name: logstash-template
+          configMap:
+            defaultMode: 420
+            name: logstash-template
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -120,4 +132,3 @@ spec:
     - name: logstash-beats
       protocol: TCP
       port: 5044
-    

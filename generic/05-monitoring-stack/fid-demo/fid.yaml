@@ -114,7 +114,7 @@ spec:
       containers:
         - name: fid
           image: radiantone/fid:7.3.16 # Do not change as migration will not be success
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           lifecycle:
             postStart:
               exec:

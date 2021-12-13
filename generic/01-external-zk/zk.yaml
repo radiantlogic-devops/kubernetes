@@ -59,6 +59,9 @@ spec:
             periodSeconds: 10
             failureThreshold: 3
             successThreshold: 1
+          volumeMounts:
+            - name: zookeeper-pvc
+              mountPath: /opt/radiantone/rli-zookeeper-external
           env:
             - name: CLIENT_PORT
               value: "2181"
