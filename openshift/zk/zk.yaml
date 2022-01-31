@@ -34,7 +34,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: zookeeper
-          image: anikhet/ib_zk_os
+          image: <Docker_image> #Docker_image created from Dockerfile
           imagePullPolicy: Always
           ports:
             - containerPort: 2181
