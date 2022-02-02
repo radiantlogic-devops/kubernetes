@@ -81,36 +81,40 @@ spec:
           image: vamzi/fluentd
           imagePullPolicy: Always
           env:
-          - name: FLUENTD_ARGS
-            value: -c /etc/fluentd-config/fluentd.conf
+          - name: FLUENTD_CONF
+            value: /etc/fluentd-config/fluentd.conf
           volumeMounts:
           - name: zookeeper-pvc
             mountPath: /var/log/zookeeper
             subPath: zookeeper/logs
-          - name: config-volume
+          - name: fluentd-config
             mountPath: /etc/fluentd-config
       nodeSelector:
         kubernetes.io/os: linux
       volumes:
         - name: zookeeper-pvc
           emptyDir: {}
-        - name: config-volume
+        - name: fluentd-config
           configMap:
-            name: fluentd-config
-
+            name: fluentd-zk-config
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: fluentd-config
+  name: fluentd-zk-config
 data:
   fluentd.conf: |
     <source>
       @type tail
-      format none
+      read_from_head true
       path /var/log/zookeeper/zookeeper.log
       pos_file /var/log/zookeeper/zookeeperlog.pos
       tag zookeeper.log
+      <parse>
+        @type multiline_grok
+        grok_pattern %{TIMESTAMP_ISO8601:timestamp} \[myid:%{NUMBER:zk_id}\] - %{WORD:log_level} \[%{GREEDYDATA:thread_name}\] - %{GREEDYDATA:message}
+        multiline_start_regexp /\d{4}-\d{1,2}-\d{1,2}/
+      </parse>
     </source>
 
     <filter zookeeper.log>

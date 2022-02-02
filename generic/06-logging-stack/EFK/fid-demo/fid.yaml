@@ -94,7 +94,7 @@ spec:
         - name: migration
           image: alpine:latest
           imagePullPolicy: IfNotPresent
-          command: ["/bin/sh", "-c","if [ $HOSTNAME == fid-0 ]; then apk add -q --no-cache curl tree; cd /migrations ; curl -o export.zip https://raw.githubusercontent.com/radiantlogic-devops/docker-compose/master/05-monitoring-stack/configs/fid/export.zip; tree;fi"]
+          command: ["/bin/sh", "-c","if [ $HOSTNAME == fid-0 ]; then apk add -q --no-cache curl tree; cd /migrations ; curl -o export.zip https://raw.githubusercontent.com/radiantlogic-devops/docker-compose/master/05-monitoring-stack/configs/fid/export-2.zip; tree;fi"]
           volumeMounts:
           - name: migrations
             mountPath: /migrations
@@ -213,27 +213,23 @@ spec:
                 "-c",
                 "until nc -w 2 -z localhost 2389; do echo Waiting for fid -- 2389;sleep 10; done;echo \"fid is up!\" && /opt/fidexporter/entry.sh"
               ]   
-        - name: filebeat
-          image: docker.elastic.co/beats/filebeat:7.5.0
-          args: [
-              "-c", "/etc/filebeat.yml",
-              "-e",
-          ]
-          securityContext:
-            privileged: true
+        - name: fluentd
+          image: vamzi/fluentd
+          imagePullPolicy: Always
+          env:
+          - name: FLUENTD_CONF
+            value: /etc/fluentd-config/fluentd.conf
           volumeMounts:
-            - name: filebeat-config
-              mountPath: /etc/filebeat.yml
-              readOnly: true
-              subPath: filebeat.yml
-            - name: r1-pvc
-              mountPath: /opt/radiantone/vds           
+          - name: fluentd-config
+            mountPath: /etc/fluentd-config
+          - name: r1-pvc
+            mountPath: /opt/radiantone/vds           
       nodeSelector:
         kubernetes.io/os: linux        
       volumes:
-      - name: filebeat-config
+      - name: fluentd-config
         configMap:
-          name: filebeat-fid-config
+          name: fluentd-fid-config
       - name: r1-pvc
         emptyDir: {}
       - name: migrations
@@ -242,110 +238,241 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: filebeat-fid-config
+  name: fluentd-fid-config
 data:
-  filebeat.yml: |-
-    filebeat.inputs:
-    - type: log
-      enabled: true
-      fields: 
-        log_name: vds_server.log
-      json.overwrite_keys: true
-      json.message_key: message
-      fields_under_root: true
-      multiline.negate: true
-      multiline.match: after
-      multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
-      paths:
-        - /opt/radiantone/vds/vds_server/logs/vds_server.log
-    - type: log
-      enabled: true
-      fields: 
-        log_name: vds_server_access.log
-      json.overwrite_keys: true
-      json.message_key: message
-      fields_under_root: true
-      multiline.negate: true
-      multiline.match: after
-      multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
-      paths:
-        - /opt/radiantone/vds/vds_server/logs/vds_server_access.log
-      fields: {log_name: vds_server_access.log}
-    - type: log
-      enabled: true
-      fields: 
-        log_name: periodiccache.log
-      json.overwrite_keys: true
-      json.message_key: message
-      fields_under_root: true
-      multiline.negate: true
-      multiline.match: after
-      multiline.pattern: '^\[[0-9]{4}-[0-9]{2}-[0-9]{2}'
-      paths:
-        - /opt/radiantone/vds/vds_server/logs/periodiccache.log
-    - type: log
-      enabled: true
-      fields: 
-        log_name: web.log
-      json.overwrite_keys: true
-      json.message_key: message
-      fields_under_root: true
-      multiline.negate: true
-      multiline.match: after
-      multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
-      paths:
-        - /opt/radiantone/vds/vds_server/logs/jetty/web.log
-    - type: log
-      enabled: true
-      fields: 
-        log_name: web_access.log
-      json.overwrite_keys: true
-      json.message_key: message
-      fields_under_root: true
-      multiline.negate: true
-      multiline.match: after
-      multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
-      paths:
-        - /opt/radiantone/vds/vds_server/logs/jetty/web_access.log
-    - type: log
-      enabled: true
-      fields: 
-        log_name: sync_engine.log
-      json.overwrite_keys: true
-      json.message_key: message
-      fields_under_root: true
-      multiline.negate: true
-      multiline.match: after
-      multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
-      paths:
-        - /opt/radiantone/vds/vds_server/logs/sync_engine/sync_engine.log
-    - type: log
-      enabled: true
-      fields: 
-        log_name: alerts.log
-      json.overwrite_keys: true
-      json.message_key: message
-      fields_under_root: true
-      multiline.negate: true
-      multiline.match: after
-      multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
-      paths:
-        - /opt/radiantone/vds/alerts.log
-    - type: log
-      enabled: true
-      fields: 
-        log_name: agent_fid_sd_agent_real_time.log
-      json.overwrite_keys: true
-      json.message_key: message
-      fields_under_root: true
-      multiline.negate: true
-      multiline.match: after
-      multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
-      paths:
-        - /opt/radiantone/vds/sync_agents/agent_fid_sd_agent_real_time.log
-   
-    output.logstash:
-      hosts: ["logstash.logging.svc.cluster.local:5044"]
-    
-    output.console:
-      enabled: false
+  fluentd.conf: |
+    <source>
+      @type tail
+      read_from_head true
+      format multiline
+      format_firstline /\d{4}-\d{1,2}-\d{1,2}/
+      format1 /^(?<message>.*)$/
+      path /opt/radiantone/vds/vds_server/logs/vds_server.log
+      pos_file /opt/radiantone/vds/vds_server/logs/vds_server.log.pos
+      tag vds_server.log
+    </source>
+
+    <filter vds_server.log>
+      @type record_transformer
+      <record>
+      hostname ${hostname}
+      </record>
+    </filter>
+
+    <match vds_server.log>
+      @type elasticsearch
+      host elasticsearch.logging
+      port 9200
+      logstash_format true
+      logstash_prefix vds_server.log
+    </match>
+
+    <source>
+      @type tail
+      read_from_head true
+      path /opt/radiantone/vds/vds_server/logs/vds_server_access.csv
+      pos_file /opt/radiantone/vds/vds_server/logs/vds_server_access.csv.pos
+      tag vds_server_access.log
+      <parse>
+        @type tsv
+        keys LOGID,LOGDATE,LOGTIME,LOGTYPE,SERVERID,SERVERPORT,SESSIONID,MSGID,CLIENTIP,BINDDN,BINDUSER,CONNNB,OPNB,OPCODE,OPNAME,BASEDN,ATTRIBUTES,SCOPE,FILTER,SIZELIMIT,TIMELIMIT,LDAPCONTROLS,CHANGES,RESULTCODE,ERRORMESSAGE,MATCHEDDN,NBENTRIES,ETIME
+        types LOGID:integer,LOGDATE:string,LOGTIME:string,LOGTYPE:integer,SERVERID:string,SERVERPORT:integer,SESSIONID:integer,MSGID:integer,CLIENTIP:string,BINDDN:string,BINDUSER:string,CONNNB:integer,OPNB:integer,OPCODE:integer,OPNAME:string,BASEDN:string,ATTRIBUTES:string,SCOPE:string,FILTER:string,SIZELIMIT:integer,TIMELIMIT:integer,LDAPCONTROLS:string,CHANGES:string,RESULTCODE:integer,ERRORMESSAGE:string,MATCHEDDN:string,NBENTRIES:integer,ETIME:integer
+      </parse>
+    </source>
+
+    <filter vds_server_access.log>
+      @type record_transformer
+      <record>
+      hostname ${hostname}
+      </record>
+    </filter>
+
+    <match vds_server_access.log>
+      @type elasticsearch
+      host elasticsearch.logging
+      port 9200
+      logstash_format true
+      logstash_prefix vds_server_access.log
+    </match>
+
+    <source>
+      @type tail
+      read_from_head true
+      format multiline
+      format_firstline /\d{4}-\d{1,2}-\d{1,2}/
+      format1 /^(?<message>.*)$/
+      path /opt/radiantone/vds/vds_server/logs/periodiccache.log
+      pos_file /opt/radiantone/vds/vds_server/logs/periodiccache.log.pos
+      tag periodiccache.log
+    </source>
+
+    <filter periodiccache.log>
+      @type record_transformer
+      <record>
+      hostname ${hostname}
+      </record>
+    </filter>
+
+    <match periodiccache.log>
+      @type elasticsearch
+      host elasticsearch.logging
+      port 9200
+      logstash_format true
+      logstash_prefix periodiccache.log
+    </match>
+
+    <source>
+      @type tail
+      read_from_head true
+      format multiline
+      format_firstline /\d{4}-\d{1,2}-\d{1,2}/
+      format1 /^(?<message>.*)$/
+      path /opt/radiantone/vds/vds_server/logs/jetty/web.log
+      pos_file /opt/radiantone/vds/vds_server/logs/jetty/web.log.pos
+      tag web.log
+    </source>
+
+    <filter web.log>
+      @type record_transformer
+      <record>
+      hostname ${hostname}
+      </record>
+    </filter>
+
+    <match web.log>
+      @type elasticsearch
+      host elasticsearch.logging
+      port 9200
+      logstash_format true
+      logstash_prefix web.log
+    </match>
+
+    <source>
+      @type tail
+      read_from_head true
+      format multiline
+      format_firstline /\d{4}-\d{1,2}-\d{1,2}/
+      format1 /^(?<message>.*)$/
+      path /opt/radiantone/vds/vds_server/logs/jetty/web_access.log
+      pos_file /opt/radiantone/vds/vds_server/logs/jetty/web_access.log.pos
+      tag web_access.log
+    </source>
+
+    <filter web_access.log>
+      @type record_transformer
+      <record>
+      hostname ${hostname}
+      </record>
+    </filter>
+
+    <match web_access.log>
+      @type elasticsearch
+      host elasticsearch.logging
+      port 9200
+      logstash_format true
+      logstash_prefix web_access.log
+    </match>
+
+    <source>
+      @type tail
+      read_from_head true
+      format multiline
+      format_firstline /\d{4}-\d{1,2}-\d{1,2}/
+      format1 /^(?<message>.*)$/
+      path /opt/radiantone/vds/vds_server/logs/sync_engine/sync_engine.log
+      pos_file /opt/radiantone/vds/vds_server/logs/sync_engine/sync_engine.log.pos
+      tag sync_engine.log
+    </source>
+
+    <filter sync_engine.log>
+      @type record_transformer
+      <record>
+      hostname ${hostname}
+      </record>
+    </filter>
+
+    <match sync_engine.log>
+      @type elasticsearch
+      host elasticsearch.logging
+      port 9200
+      logstash_format true
+      logstash_prefix sync_engine.log
+    </match>
+
+    <source>
+      @type tail
+      read_from_head true
+      format multiline
+      format_firstline /\d{4}-\d{1,2}-\d{1,2}/
+      format1 /^(?<message>.*)$/
+      path /opt/radiantone/vds/alerts.log
+      pos_file /opt/radiantone/vds/alerts.log.pos
+      tag alerts.log
+    </source>
+
+    <filter alerts.log>
+      @type record_transformer
+      <record>
+      hostname ${hostname}
+      </record>
+    </filter>
+
+    <match alerts.log>
+      @type elasticsearch
+      host elasticsearch.logging
+      port 9200
+      logstash_format true
+      logstash_prefix alerts.log
+    </match>
+
+    <source>
+      @type tail
+      read_from_head true
+      format multiline
+      format_firstline /\d{4}-\d{1,2}-\d{1,2}/
+      format1 /^(?<message>.*)$/
+      path /opt/radiantone/vds/logs/sync_agents/*/*
+      pos_file /opt/radiantone/vds/logs/sync_agents/*/*.pos
+      tag sync_agents.log
+    </source>
+
+    <filter sync_agents.log>
+      @type record_transformer
+      <record>
+      hostname ${hostname}
+      </record>
+    </filter>
+
+    <match sync_agents.log>
+      @type elasticsearch
+      host elasticsearch.logging
+      port 9200
+      logstash_format true
+      logstash_prefix sync_agents.log
+    </match>
+
+    <source>
+      @type tail
+      read_from_head true
+      format multiline
+      format_firstline /\d{4}-\d{1,2}-\d{1,2}/
+      format1 /^(?<message>.*)$/
+      path /opt/radiantone/vds/logs/sync_agents/agent_fid_sd_agent_real_time.log
+      pos_file /opt/radiantone/vds/logs/sync_agents/agent_fid_sd_agent_real_time.log.pos
+      tag agent_fid_sd_agent_real_time.log
+    </source>
+
+    <filter agent_fid_sd_agent_real_time.log>
+      @type record_transformer
+      <record>
+      hostname ${hostname}
+      </record>
+    </filter>
+
+    <match agent_fid_sd_agent_real_time.log>
+      @type elasticsearch
+      host elasticsearch.logging
+      port 9200
+      logstash_format true
+      logstash_prefix agent_fid_sd_agent_real_time.log
+    </match>
