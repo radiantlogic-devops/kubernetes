@@ -6,7 +6,7 @@ ARG BASE_REGISTRY=registry1.dso.mil
 ARG BASE_IMAGE=ironbank/redhat/ubi/ubi8
 ARG BASE_TAG=8.4
 
-FROM radiantone/fid:7.3.16 as base
+FROM radiantone/zookeeper:3.5.8 as base
 
 RUN chmod -R g=u /opt/radiantone
 
@@ -24,9 +24,12 @@ RUN yum update --setopt=tsflags=nodocs -y && \
 # Copy file from FID image
 COPY --from=base --chown=1000:0 /opt/radiantone /opt/radiantone
 
+#COPY --chown=1000:0 scripts/run.sh /opt/radiantone/run.sh
+RUN chmod +x /opt/radiantone/run.sh
+
 # Provide a non-root user to run the process.
-#RUN groupadd --gid 0 radiantone && \
-RUN useradd --uid 1000 --gid 0 -G 0 \
+#RUN groupadd --gid 1000 radiantone && \
+RUN  useradd --uid 1000 --gid 0 -G 0 \
       --home-dir /opt/radiantone --no-create-home \
       radiantone
 
@@ -41,34 +44,10 @@ RUN chmod -R g=u /opt/radiantone
 
 WORKDIR /opt/radiantone
 
-ENV PATH=/opt/radiantone/vds/bin:/opt/radiantone/vds/bin/advanced:$PATH
-ENV RLI_HOME=/opt/radiantone/vds
-ENV LIVENESS_CHECK="curl -m 1 -sf localhost:9100/ping"
+ENV PATH=/opt/radiantone/rli-zookeeper-external/zookeeper/bin:/opt/radiantone/rli-zookeeper-external/jdk/bin:${PATH}
 
-EXPOSE 2389 2636 7070 7171 8089 8090 9100 9101
+EXPOSE 2181 2888 3888 8080
 
-ENTRYPOINT ["/opt/radiantone/run.sh"]
-CMD ["fg"]
+CMD ["/opt/radiantone/run.sh"]
 
-HEALTHCHECK --interval=10s --timeout=5s --start-period=1m --retries=5 CMD curl -I -f --max-time 5 http://localhost:9100 || exit 1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+HEALTHCHECK --interval=10s --timeout=5s --start-period=1m --retries=5 CMD curl -I -f --max-time 5 http://localhost:8080/commands/ruok || exit 1

@@ -82,7 +82,7 @@ spec:
         runAsNonRoot: true
       containers:
         - name: fid
-          image: anikhet/ib-fidimg
+          image: <Docker_image> #Docker image created from the Dockerfile
           imagePullPolicy: Always
           lifecycle:
             postStart:

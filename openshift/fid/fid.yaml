@@ -61,7 +61,7 @@ spec:
       terminationGracePeriodSeconds: 120
       containers:
         - name: myfid
-          image: anikhet/ib-fidimg
+          image: <Docker_image> #Docker image created from the Dockerfile
           imagePullPolicy: IfNotPresent
           lifecycle:
             postStart:
