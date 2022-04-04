@@ -119,14 +119,3 @@ fi
 if [ "$1" == "log" ] ;  then
   #echo "Spawning foreground process..."
   tail -f /dev/null /opt/radiantone/vds/vds_server/logs/*.log
-fi
-
-
-
-
-
-
-
-
-
-
