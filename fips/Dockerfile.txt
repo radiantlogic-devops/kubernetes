@@ -10,8 +10,8 @@ RUN groupadd --gid 1000 radiantone && \
 #COPY test.ldif /resources/test.ldif
 #COPY myexport.zip /migrations/export.zip
 #COPY configure_fid.sh /opt/radiantone/scripts/configure_fid.h
-COPY scripts.sh /opt/radiantone/scripts.sh
-RUN chmod +x /opt/radiantone/scripts.sh
+COPY fips.sh /opt/radiantone/fips.sh
+RUN chmod +x /opt/radiantone/fips.sh
 
 # Change the ownership
 RUN chown -R radiantone:radiantone /opt/radiantone
@@ -25,5 +25,5 @@ USER radiantone
 # Set the wrking directory
 WORKDIR /opt/radiantone
 
-ENTRYPOINT ["/opt/radiantone/scripts.sh"]
+ENTRYPOINT ["/opt/radiantone/fips.sh"]
 CMD ["fg"]
