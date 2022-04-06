@@ -1,4 +1,4 @@
-FROM radiantone/fid:7.3.16
+FROM radiantone/fid:7.4.0
 
 # Provide a non-root user to run the process.
 RUN groupadd --gid 1000 radiantone && \
