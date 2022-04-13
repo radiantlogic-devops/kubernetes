@@ -10,8 +10,8 @@ data:
 apiVersion: v1
 data:
   ZK: "external"
-  ZK_CONN_STR: "zookeeper.default.svc.cluster.local:2181" # this should match the service name from zk deployment
-  ZK_CLUSTER: "fid"
+  ZK_CONN_STR: "zookeeper:2181" # this should match the service name from zk deployment
+  ZK_CLUSTER: "fid-kubernetes-cluster-01"
   LICENSE: "PASTE_LICENSE_HERE"
 kind: ConfigMap
 metadata:
@@ -93,7 +93,7 @@ spec:
             privileged: true
       containers:
         - name: fid
-          image: radiantone/fid:7.3.18
+          image: radiantone/fid:7.4.0
           imagePullPolicy: Always
           lifecycle:
             postStart:
@@ -153,13 +153,13 @@ spec:
           volumeMounts:
             - name: r1-pvc
               mountPath: /opt/radiantone/vds
-          resources:
-            limits:
-              cpu: "4"
-              memory: 8Gi
-            requests:
-              cpu: "2"
-              memory: 4Gi
+#          resources:
+#            limits:
+#              cpu: "1"
+#              memory: 2Gi
+#            requests:
+#              cpu: "500m"
+#              memory: 2Gi
           command: ["/bin/sh", "-c"]
           args:
             [
